@@ -1,0 +1,55 @@
+name: Build
+
+on:
+  workflow_dispatch:
+  push:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+    - uses: actions/checkout@v5
+
+    - uses: actions/checkout@v5
+      with:
+        repository: xmrig/xmrig-deps
+        path: xmrig-deps
+
+    - uses: msys2/setup-msys2@v2
+      with:
+        update: true
+        msystem: UCRT64
+        install: mingw-w64-ucrt-x86_64-gcc make
+
+    - name: Build
+      run: |
+        mkdir build && cd build
+        "c:\Program Files\CMake\bin\cmake.exe" .. -G "Unix Makefiles" -DXMRIG_DEPS=./xmrig-deps/gcc/x64
+        make -j$(nproc)
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: xmrig-build
+        path: |
+          build/benchmark_1M.cmd
+          build/benchmark_10M.cmd
+          build/pool_mine_example.cmd
+          build/rtm_ghostrider_example.cmd
+          build/solo_mine_example.cmd
+          build/WinRing0x64.sys
+          build/xmrig.exe
+
+    - run: |
+        cd build
+        7z a xmrig-build.zip benchmark_1M.cmd benchmark_10M.cmd pool_mine_example.cmd rtm_ghostrider_example.cmd solo_mine_example.cmd WinRing0x64.sys xmrig.exe
+      shell: cmd
+
+    - uses: softprops/action-gh-release@v2
+      if: github.ref_type == 'tag'
+      with:
+        files: build/xmrig-build.zip
